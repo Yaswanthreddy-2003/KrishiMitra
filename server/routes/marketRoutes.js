@@ -25,15 +25,15 @@ router.get('/prices', auth, async (req, res) => {
             return res.status(400).json({ msg: 'Please provide state, district, and commodity' });
         }
 
-        const API_KEY = '579b464db66ec23bdd0000015b491231010b404e571231d39998e6cb';
+        const API_KEY = '579b464db66ec23bdd0000012df92b9310b148e170405a16f0e31e0a';
         const BASE_URL = 'https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070';
 
         const fetchAgmarknetData = async (useDistrict = true) => {
             let url = `${BASE_URL}?api-key=${API_KEY}&format=json&limit=5`;
-            
+
             url += `&filters[state]=${encodeURIComponent(state)}`;
             url += `&filters[commodity]=${encodeURIComponent(commodity)}`;
-            
+
             if (useDistrict) url += `&filters[district]=${encodeURIComponent(district)}`;
 
             try {
@@ -41,11 +41,11 @@ router.get('/prices', auth, async (req, res) => {
                 return { records: response.data?.records || [], isMock: false };
             } catch (err) {
                 console.warn(`[WARNING] Agmarknet API Failed (${err.message}). Injecting Mock Data fallback for resilient UI.`);
-                
+
                 // Fallback Mock generator identical to the Agmarknet payload structure
                 const baseMod = Math.floor(Math.random() * 800) + 1500;
                 const mks = useDistrict ? [district + " Main", district + " Secondary"] : [state + " Central Hub", state + " Grain Market", state + " Yard"];
-                
+
                 const mockRecords = mks.map((m, i) => ({
                     market: m,
                     commodity: commodity,
@@ -54,7 +54,7 @@ router.get('/prices', auth, async (req, res) => {
                     modal_price: baseMod + (i * 20),
                     arrival_date: new Date().toISOString().split('T')[0]
                 }));
-                
+
                 return { records: mockRecords, isMock: true };
             }
         };

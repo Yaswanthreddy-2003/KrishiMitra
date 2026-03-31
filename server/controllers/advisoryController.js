@@ -59,14 +59,38 @@ exports.generateSimplifiedAdvisory = async (req, res) => {
 
         const advice = generateSimplifiedAdvice(nitrogen, phosphorous, potassium, temperature, humidity, ph, rainfall);
 
+        // Fetch ML prediction
+        let mlRecommendedCrop = advice.crop_recommendation;
+        let topPredictions = [];
+        try {
+            const mlRes = await axios.post('http://127.0.0.1:8000/predict', {
+                N: parseFloat(nitrogen),
+                P: parseFloat(phosphorous),
+                K: parseFloat(potassium),
+                temperature: parseFloat(temperature),
+                humidity: parseFloat(humidity),
+                ph: parseFloat(ph),
+                rainfall: parseFloat(rainfall)
+            });
+            if (mlRes.data && mlRes.data.recommended_crop) {
+                mlRecommendedCrop = mlRes.data.recommended_crop;
+                topPredictions = mlRes.data.top_predictions || [];
+            }
+        } catch (mlErr) {
+            console.error('ML API failed, falling back to rule-based engine:', mlErr.message);
+        }
+
         const insertRes = await pool.query(
             `INSERT INTO simplified_advisories 
              (user_id, nitrogen, phosphorous, potassium, temperature, humidity, ph, rainfall, crop_recommendation, fertilizer_advice) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-            [req.user.id, nitrogen, phosphorous, potassium, temperature, humidity, ph, rainfall, advice.crop_recommendation, advice.fertilizer_advice]
+            [req.user.id, nitrogen, phosphorous, potassium, temperature, humidity, ph, rainfall, mlRecommendedCrop, advice.fertilizer_advice]
         );
 
-        res.status(201).json(insertRes.rows[0]);
+        const savedAdvisory = insertRes.rows[0];
+        savedAdvisory.top_predictions = topPredictions; // Send top_predictions back for live UI
+
+        res.status(201).json(savedAdvisory);
 
     } catch (err) {
         console.error('Generate simplified advisory error:', err.message);

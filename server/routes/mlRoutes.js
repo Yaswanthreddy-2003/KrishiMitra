@@ -93,4 +93,25 @@ router.post('/detect', auth, upload.single('image'), async (req, res) => {
     }
 });
 
+// @route   GET /api/disease/history
+// @desc    Get disease detection history for the logged-in user
+// @access  Private
+router.get('/history', auth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT id, predicted_disease, confidence, treatment, low_confidence, created_at
+             FROM disease_reports
+             WHERE user_id = $1
+             ORDER BY created_at DESC
+             LIMIT 30`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Disease history fetch error:', err.message);
+        res.status(500).json({ error: 'Server error fetching disease history' });
+    }
+});
+
 module.exports = router;
+
